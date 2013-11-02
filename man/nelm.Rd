@@ -80,10 +80,18 @@ A numerical vector of length 1. If the difference between two consecutive NR ste
   
 \item \code{centALPHA} If TRUE the estimated \eqn{\alpha} parameters are centered to sum up to 1. Default is FALSE.
 
+\item \code{Clist}
+A list which contains informations about which parameters should be held constant during estimation. Each list element has to look similar to this expression: "eta\\d* = -*\\d*" (of course real digits instead of Regexes!). The term \code{eta} refers to a column in the Q matrix in the reshape object which actually represents the parameters. The right side of the equation is the constant the parameter should be set to. So an entry in the \code{Clist} could look like "eta2 = -1" which means that the second eta parameter will not be estimated and is set to the value of -1.
+
+
+\item \code{npar}
+If TRUE, the prior distribution is nonparametric and is reestimated in each EM step by use of the expected number of examinees on each quadrature node. Default: FALSE. Computations are based on the EH (empirical histogram) estimation method of Woods 2007 & 2011. It is possible to estimate EHs for more than one group. First experiences showed that a huge amount of EM steps are needed (> 5000) to approximate the latent ability distributions.
+
+}
+ 
   
   }
 
-}
 \value{
 
 
@@ -109,8 +117,11 @@ A numerical vector of length 1. If the difference between two consecutive NR ste
 Suh, Y., & Bolt, D. M. (2010). Nested logit models for multiple-choice item response data.
 \emph{Psychometrika, 75}, 454-473.
 
-
 Suh, Y. & Bolt, D. M. (2011). A nested logit approach for investigating distractors as causes of differential item functioning. \emph{Journal of Educational Measurement, 48}, 188-205.
+
+Woods, C. M. (2007). Empirical Histograms in Item Response Theory With Ordinal Data. \emph{Education and Psychological Measurement}, 67:1, 73-87.
+
+Woods, C. M. (2011). DIF Testing With an Empirical-Histogram Approximation of the Latent Density for Each Group. \emph{Applied Measurement in Education}, 24:3, 256-279.
 }
 \author{
 Manuel Reif
@@ -126,7 +137,7 @@ Manuel Reif
 }
 \examples{
 
-\dontrun{
+%\dontrun{
 # create list of parameters
 Item1 <- c(1,-2,c(-0.5,0.3,0.2),c(-0.5,-0.3,0.8))
 names(Item1) <- c("a","b",paste("zeta1",1:3,sep=""),paste("lamb",1:3,sep=""))
@@ -152,12 +163,15 @@ simdat1 <- NLM.sim(ParList,perp1)
 # reshape
 reshOBJ <- reshMG(simdat1,items=1:5,groups=NA,correct=rep(1,5),design="nodif",echo=TRUE,TYPE="NLM")
 
-# estimate a nested logit model
-res.nlm <- nelm(reshOBJ=reshOBJ)
+# estimate a nested logit model with a maximum number of 40 EM iterations, 
+# which is NOT recommanded and is just applied here because estimating the model
+# during example checks on cran took too long with default settings
+
+res.nlm <- nelm(reshOBJ=reshOBJ, ctrl=list(EMmax=40))
 
 summary(res.nlm)
 
-}
+%}
 
   }
 

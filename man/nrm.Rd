@@ -75,7 +75,15 @@ A numerical vector of length 1. This argument sets the maximum number of Newton 
 \item \code{NRexac}
 A numerical vector of length 1. If the difference between two consecutive NR steps is not larger than 'exac' - the estimation stops. Default: \code{0.01}
 
+\item \code{Clist}
+A list which contains informations about which parameters should be held constant during estimation. Each list element has to look similar to this expression: "eta\\d* = -*\\d*" (of course real digits instead of Regexes!). The term \code{eta} refers to a column in the Q matrix in the reshape object which actually represents the parameters. The right side of the equation is the constant the parameter should be set to. So an entry in the \code{Clist} could look like "eta2 = -1" which means that the second eta parameter will not be estimated and is set to the value of -1.
+
+\item \code{npar}
+If TRUE, the prior distribution is nonparametric and is reestimated in each EM step by use of the expected number of examinees on each quadrature node. Default: FALSE. Computations are based on the EH (empirical histogram) estimation method of Woods 2007 & 2011. It is possible to estimate EHs for more than one group. First experiences showed that a huge amount of EM steps are needed (> 5000) to approximate the latent ability distributions.
+
 }
+
+
 
 
 }
@@ -106,6 +114,11 @@ Baker, F. B., & Kim, S.-H. (2004). \emph{Item response theory. Parameter estimat
 
 Harwell, M. R., Baker, F. B. & Zwarts, M. (1988). Item parameter estimation via marginal maximum likelihood and an EM algorithm: A didactic. \emph{Journal of Educational Statistics, 13}, 243-271.
 
+Woods, C. M. (2007). Empirical Histograms in Item Response Theory With Ordinal Data. \emph{Education and Psychological Measurement}, 67:1, 73-87.
+
+Woods, C. M. (2011). DIF Testing With an Empirical-Histogram Approximation of the Latent Density for Each Group. \emph{Applied Measurement in Education}, 24:3, 256-279.
+
+
 }
 \author{
 Manuel Reif
@@ -121,33 +134,36 @@ Manuel Reif
 }
 \examples{
 
-\dontrun{
+%\dontrun{
 
-# Simulating 5 Items within a loop
-ParList <- lapply(1:5,function(x)
+# Simulating 3 Items within a loop
+ParList <- lapply(1:3,function(x)
 {
   Item1 <- c(c(-2,-1,1,2),c(-1.2,0.3,0.2,0.7))
   names(Item1) <- c(paste("zeta",1:4,sep=""),paste("lamb",1:4,sep=""))
   Item1
 })
 
-names(ParList) <- paste("item",1:5,sep="")
+names(ParList) <- paste("item",1:3,sep="")
 
 # simulate person parameters
-perp1     <- rnorm(1500,0,1)
+perp1     <- rnorm(1100,0,1)
 
 # simulate data.frame 
 sim.nrm.1 <- NRM.sim(ParList,perp1)
 
 # reshape
-reshdat1 <- reshMG(sim.nrm.1,items=1:5,correct=rep(1,5))
+reshdat1 <- reshMG(sim.nrm.1,items=1:3,correct=rep(1,3))
 
-# fit the nrm
-res.nrm <- nrm(reshdat1)
+# fit the nrm with a maximum number of 40 EM iterations, which is NOT recommanded 
+# and is just applied here because estimating the model during example checks on cran
+# took too long with default settings
+
+res.nrm <- nrm(reshdat1, ctrl=list(EMmax=40))
 
 summary(res.nrm)
 
-}
+%}
 
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

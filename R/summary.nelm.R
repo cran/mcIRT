@@ -89,15 +89,40 @@ function(object, ...)
   rownames(SEmat) <- c("SE|mean","SE|sigma^2")
   colnames(SEmat) <- paste("group|",levels(RESnlm$reshOBJ$gr),sep="")
   
-  firstpart <- matrix(c(min2logL,as.integer(RESnlm$n_steps),ncol(RESnlm$reshOBJ$Qmat)))
-  rownames(firstpart) <- c("-2logLikelihood:","Number of EM-cycles:","Number of estimated parameters: ")
-  colnames(firstpart) <- ""
+
   
+  ### number of parameters <--- NEW
+  nme  <- length(RESnlm$erg_distr$mean_est) - 1
+  nva  <- RESnlm$ctrl$sigmaest *(length(RESnlm$erg_distr$sig_est) -1)
+  npar <- ncol(RESnlm$reshOBJ$Qmat) + nme + nva - length(RESnlm$ctrl$Clist)
+  
+  
+  if(!RESnlm$ctrl$nonpar)
+  {
+    
+    ### number of parameters <--- NEW
+    nme  <- length(RESnlm$erg_distr$mean_est) - 1
+    nva  <- RESnlm$ctrl$sigmaest *(length(RESnlm$erg_distr$sig_est) -1)
+    npar <- ncol(RESnlm$reshOBJ$Qmat) + nme + nva - length(RESnlm$ctrl$Clist)
+    
+  } else 
+  {
+    pardist <- length(RESnlm$QUAD$A$nodes)*length(RESnlm$QUAD) - 3 - (length(RESnlm$QUAD) - 1)  
+    # anzahl der bins - 3 für die erste gruppe und anzahl - 1 für die restlichen gruppen + itpar - constants
+    npar <- ncol(RESnlm$reshOBJ$Qmat) + pardist - length(RESnlm$ctrl$Clist)
+  }
+  
+  
+  nonparametric <- ifelse(RESnlm$ctrl$nonpar,"nonparametric","parametric")
   
   ### number of parameters
-  nme  <- length(RESnlm$erg_distr$mean_est) - 1
-  nva  <- length(RESnlm$erg_distr$sig_est) - 1
-  npar <- ncol(RESnlm$reshOBJ$Qmat) + nme + nva
+#   nme  <- length(RESnlm$erg_distr$mean_est) - 1
+#   nva  <- length(RESnlm$erg_distr$sig_est) - 1
+#   npar <- ncol(RESnlm$reshOBJ$Qmat) + nme + nva
+
+  firstpart <- matrix(c(min2logL,as.integer(RESnlm$n_steps),npar))
+  rownames(firstpart) <- c("-2logLikelihood:","Number of EM-cycles:","Number of estimated parameters: ")
+  colnames(firstpart) <- ""
   
   
   ######### OUTPUT:
@@ -117,6 +142,7 @@ function(object, ...)
   cat("\n Standard Errors:\n")
   print(SEmat)
   
+  cat("\nPrior:", nonparametric)
   
   cat("\n\n Parameter estimates for the 2-PL part")
   cat("\n -------------------------------------------------------------------- \n")

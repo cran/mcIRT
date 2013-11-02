@@ -72,7 +72,7 @@ Manuel Reif
 }
 \examples{
 
-\dontrun{
+%\dontrun{
 
 # create a list of parameters (see NRM.sim function)
 NUMBI <- 5
@@ -95,7 +95,7 @@ simdat2 <- NRM.sim(ParList,perp2)
 simdat1 <- data.frame(ID=1:1000,simdat1)
 simdat2 <- data.frame(ID=1001:2000,simdat2)
 
-simdatalla <- merge(simdat1,simdat2,all=T)
+simdatalla <- merge(simdat1,simdat2,all=TRUE)
 simdatall  <- simdatalla[,-1]
 
 head(simdatall)
@@ -115,7 +115,7 @@ mydes$lambda[2,5] <- 2
 
 reshdat2 <- reshMG(DAT1,items=1:5,groups=6,correct=rep(1,5), design=mydes)
 
-}
+%}
 
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

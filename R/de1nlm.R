@@ -5,6 +5,19 @@ function(Ulstv,erg_estep,startOBJ,reshOBJ,quads)
   SKEL  <- startOBJ$stwm1
   Q     <- reshOBJ$Qmat
   
+  
+  if(all(!is.na(startOBJ$setC)))
+  {
+    
+    bigv <- vector(mode="numeric",length=ncol(Q))
+    
+    bigv[-startOBJ$setC$whichetas] <- Ulstv
+    bigv[startOBJ$setC$whichetas]  <- startOBJ$setC$whichconstant
+    
+    Ulstv <- bigv
+  }
+  
+  
   opp    <- as.vector(Q %*% Ulstv)
   relstv <- relist(opp,SKEL)
   
@@ -39,9 +52,10 @@ function(Ulstv,erg_estep,startOBJ,reshOBJ,quads)
           
           # 2pl part
           # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          fique0 <- sapply(RI$riqv_querG,colSums)
           riq_quer_mat <- sapply(RI$riq_querG,function(x)x)
-          f_iq         <- sapply(RI$riqv_querG,colSums) + riq_quer_mat # nodes x items
-
+          f_iq         <- fique0 + riq_quer_mat # nodes x items
+          
             # II denotes the number of the current item
             commonterm <- as.vector(RI$riq_querG[[II]] - ZQstern_all[,1] * f_iq[,II]) ## II brauchst du schon
             
@@ -53,7 +67,7 @@ function(Ulstv,erg_estep,startOBJ,reshOBJ,quads)
           
           # NRM part
           # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
-          fique0 <- sapply(RI$riqv_querG,colSums)
+          #fique0 <- sapply(RI$riqv_querG,colSums)
           
 
             fqomega <- fique0[,II] * ZQstern_all[,-1]
@@ -78,6 +92,14 @@ function(Ulstv,erg_estep,startOBJ,reshOBJ,quads)
   
   derivV <- as.vector(deriv %*% Q)
   names(derivV) <- colnames(Q)
+  
+  if(all(!is.na(startOBJ$setC)))
+  {
+    derivV <- derivV[-startOBJ$setC$whichetas]
+  }
+  
+  
+  
   derivV
 
 }

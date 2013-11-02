@@ -1,5 +1,5 @@
 Enlm <-
-function(Ulstv,reshOBJ,startOBJ,quads,PREVinp)
+function(Ulstv,reshOBJ,startOBJ,quads,PREVinp,nonpar)
 { 
   # new
   dAtA    <- reshOBJ$recm
@@ -7,6 +7,21 @@ function(Ulstv,reshOBJ,startOBJ,quads,PREVinp)
   
   SKEL  <- startOBJ$stwm1
   Q     <- reshOBJ$Qmat
+  
+  
+  # in case some paraters are set to a certain value
+  if(all(!is.na(startOBJ$setC)))
+  {
+    bigv <- vector(mode="numeric",length=ncol(Q))
+    
+    bigv[-startOBJ$setC$whichetas] <- Ulstv
+    bigv[startOBJ$setC$whichetas]  <- startOBJ$setC$whichconstant
+    
+    Ulstv <- bigv
+  }
+  
+  
+  
   
   opp    <- as.vector(Q %*% Ulstv)
   relstv <- relist(opp,SKEL)
@@ -83,7 +98,16 @@ if(all(is.na(PREVinp)))
       t(x[,-1]) %*% riqv_1teil
     })
     
-    list(riq_querG=riq_querG, riqv_querG=riqv_querG)
+    #list(riq_querG=riq_querG, riqv_querG=riqv_querG)
+    
+    if(nonpar)
+    {
+      return(list(riq_querG=riq_querG, riqv_querG=riqv_querG,fquer=riqv_1teil)) # fquer added for nonpar distr estimation
+    } else {
+            return(list(riq_querG=riq_querG, riqv_querG=riqv_querG))  
+           }
+    
+    
   },levs=levels(reshOBJ$gr), zqgroup=nrme1, ql=quads, d1uc=datuc, SIMPLIFY = FALSE)
   ############xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -109,12 +133,33 @@ if(all(is.na(PREVinp)))
         t(x[,-1]) %*% riqv_1teil
       })
       
-      list(riq_querG=riq_querG,riqv_querG=riqv_querG)
+      
+      if(nonpar)
+      {
+       return(list(riq_querG=riq_querG, riqv_querG=riqv_querG,fquer=riqv_1teil)) # fquer added for nonpar distr estimation
+      } else {
+             return(list(riq_querG=riq_querG, riqv_querG=riqv_querG))  
+             }
+      
+      #return(list(riq_querG=riq_querG,riqv_querG=riqv_querG,fquer=riqv_1teil))
     },levnr=1:length(levels(reshOBJ$gr)),ql=quads, d1uc=datuc,MER=PREVinp$mue_hat_g,SIMPLIFY = FALSE)
     
     
   }
   
-  return(riq_querA=riq_querA)
+  
+  if(nonpar)
+  {
+    
+    riq_querA1 <- lapply(riq_querA,function(x)x[1:2]) # change the structure
+    fquer       <- lapply(riq_querA,function(x)x[[3]]) # change the structure
+    return(list(riq_querA=riq_querA1,fquer=fquer))
+    
+  } else 
+  {
+    return(list(riq_querA=riq_querA))
+  }
+  
+  #return(riq_querA=riq_querA)
 
 }
