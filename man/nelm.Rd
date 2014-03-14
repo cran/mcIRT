@@ -3,6 +3,7 @@
 \alias{summary.nelm}
 \alias{print.nelm}
 \alias{deviance.nelm}
+\alias{logLik.nelm}
 
 \title{
 Estimating a Nested Logit Model
@@ -15,9 +16,10 @@ This function fits a Nested Logit model proposed by Suh and Bolt (2010). Like th
 \usage{
 nelm(reshOBJ, etastart = "aut", ctrl=list())
 
-\method{summary}{nelm}(object, \dots)
+\method{summary}{nelm}(object, RETURN=FALSE, \dots)
 \method{print}{nelm}(x, \dots)
 \method{deviance}{nelm}(object, \dots)
+\method{logLik}{nelm}(object, \dots)
 
 }
 %- maybe also 'usage' for other objects documented here.
@@ -30,7 +32,7 @@ A numerical vector or "aut" (which is the default). Starting values for the eta 
 }
 
   \item{ctrl}{
-A list of argumets to customize the computations.
+A list of arguments to customize the computations.
 }
 
   \item{object}{
@@ -38,6 +40,10 @@ An object of class \code{nlm}.
 }
   \item{x}{
 An object of class \code{nlm}.
+}
+
+\item{RETURN}{
+A logical vector of length 1. If TRUE all result tables are returned by the summary function.
 }
 
 \item{\dots}{ 
@@ -65,7 +71,7 @@ The following arguments can be comitted within a list (ctrl argument)
   If TRUE, the variance of the latent person distribution is estimated. Otherwise it is set to 1 (for each group).
   
     \item \code{exac}
-  A numerical vector of length 1. If the difference between two consecutive EM steps is not larger than 'exac' - the estimation will stop.
+  A numerical vector of length 1. If the difference in the log-likelihood between two consecutive EM steps is not larger than 'exac' - the estimation will stop. Default: \code{0.001}
   
     \item \code{EMmax}
   A numerical vector of length 1. This argument sets the maximum number of EM steps. The default value is 500. Feel free to enlarge this number.
@@ -84,12 +90,14 @@ A numerical vector of length 1. If the difference between two consecutive NR ste
 A list which contains informations about which parameters should be held constant during estimation. Each list element has to look similar to this expression: "eta\\d* = -*\\d*" (of course real digits instead of Regexes!). The term \code{eta} refers to a column in the Q matrix in the reshape object which actually represents the parameters. The right side of the equation is the constant the parameter should be set to. So an entry in the \code{Clist} could look like "eta2 = -1" which means that the second eta parameter will not be estimated and is set to the value of -1.
 
 
-\item \code{npar}
+\item \code{nonpar}
 If TRUE, the prior distribution is nonparametric and is reestimated in each EM step by use of the expected number of examinees on each quadrature node. Default: FALSE. Computations are based on the EH (empirical histogram) estimation method of Woods 2007 & 2011. It is possible to estimate EHs for more than one group. First experiences showed that a huge amount of EM steps are needed (> 5000) to approximate the latent ability distributions.
 
+
+\item \code{quads}
+Supply specific quadrature nodes and weights for nonparametric estimation (\code{npar} must be TRUE). It has to be a list of length = number of groups. Inside each list element a list with two elements (a vector of nodes and a vector of weights) is expected. To get an idea what this looks like use \code{mcIRT:::quadIT(nodes=15,ngr=2)}.
 }
- 
-  
+
   }
 
 \value{
@@ -104,7 +112,7 @@ If TRUE, the prior distribution is nonparametric and is reestimated in each EM s
 \item{starting_values}{A list with infos concerning the starting values. The first entry gives merely the structure of the starting values whereas \code{$ulstv} gives the used starting values for the first EM step}
 \item{EAPs}{The exact a-posteriori values for each person - which is a person parameter estimate. (Group membership is considered.)}
 \item{ZLpar}{The list of item parameter estimates for each group.}
-\item{SE}{The list of Standard Errors for the item parameter estimates.}
+\item{SE}{The list of standard errors for the item parameter estimates.}
 \item{reshOBJ}{The committed reshape object (which includes the data).}
 \item{Catinf}{A list which contains 1) the information amount for each category/item/group for a sequence of ability values; 2) the sequence of ability values; 3) test information (sum above all items) for each of the ability values.}
 \item{call}{Shows the actual call of the nrm function.}
@@ -161,13 +169,13 @@ perp1 <- rnorm(1000,0,1)
 simdat1 <- NLM.sim(ParList,perp1)
 
 # reshape
-reshOBJ <- reshMG(simdat1,items=1:5,groups=NA,correct=rep(1,5),design="nodif",echo=TRUE,TYPE="NLM")
+reshOBJ <- reshMG(simdat1,items=1:5,groups=NA,correct=rep(0,5),design="nodif",echo=TRUE,TYPE="NLM")
 
 # estimate a nested logit model with a maximum number of 40 EM iterations, 
 # which is NOT recommanded and is just applied here because estimating the model
 # during example checks on cran took too long with default settings
 
-res.nlm <- nelm(reshOBJ=reshOBJ, ctrl=list(EMmax=40))
+res.nlm <- nelm(reshOBJ=reshOBJ)
 
 summary(res.nlm)
 

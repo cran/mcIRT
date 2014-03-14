@@ -1,5 +1,5 @@
 summary.nrm <-
-function(object, ...)
+function(object, RETURN=FALSE, ...)
 {
 
   RESnrm <- object
@@ -47,7 +47,7 @@ SEmat <- RESnrm$erg_distr$errmat
 rownames(SEmat) <- c("SE|mean","SE|sigma^2")
 colnames(SEmat) <- paste("group|",levels(RESnrm$reshOBJ$gr),sep="")
 
-  
+
   
 if(!RESnrm$ctrl$nonpar)
 {
@@ -60,7 +60,7 @@ npar <- ncol(RESnrm$reshOBJ$Qmat) + nme + nva  - length(RESnrm$ctrl$Clist)
   
 } else 
     {
-      pardist <- length(RESnrm$QUAD$A$nodes)*length(RESnrm$QUAD) - 3 - (length(RESnrm$QUAD) - 1)  
+      pardist <- length(RESnrm$QUAD[[1]]$nodes)*length(RESnrm$QUAD) - 3 - (length(RESnrm$QUAD) - 1)  
       # anzahl der bins - 3 für die erste gruppe und anzahl - 1 für die restlichen gruppen + itpar - constants
       npar <- ncol(RESnrm$reshOBJ$Qmat) + pardist - length(RESnrm$ctrl$Clist)
     }
@@ -82,6 +82,7 @@ cat("\n -------------------------------------------------------------------- \n"
 
 print(firstpart)
 
+cat(">>",attr(RESnrm$call,"convergence"),"<<")
 
 cat("\n\n Parameter estimates for latent distributions")
 cat("\n -------------------------------------------------------------------- \n")
@@ -90,12 +91,17 @@ print(meansig)
 cat("\n Standard Errors:\n")
 print(SEmat)
   
-cat("\nPrior:", nonparametric)  
+cat("\nPrior:", nonparametric , "&", attr(RESnrm$QUAD,"wherefrom"))  
   
 cat("\n\n Category Parameter estimates and SE")
 cat("\n -------------------------------------------------------------------- \n")
 print(form1a)
 
 
+if(RETURN)  
+{
+  return(list(firstpart=firstpart,meansig=meansig,SEmat=SEmat,form1a=form1a))
+ 
+}
 
 }

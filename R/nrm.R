@@ -17,7 +17,7 @@ function(reshOBJ,etastart=-0.1, ctrl=list())
   ######### USER CONTROLS #################
   #########################################
   
-  cont <- list(nodes=14, absrange=5, sigmaest=FALSE, exac=0.00001, EMmax = 500, verbose=TRUE, NRmax=20, NRexac=0.01, dooptim=FALSE,Clist=NA, nonpar=FALSE)
+  cont <- list(nodes=21, absrange=5, sigmaest=FALSE, exac=0.001, EMmax = 500, verbose=TRUE, NRmax=20, NRexac=0.01, Clist=NA, nonpar=FALSE, quads=NA)
 
   user_ctrlI <- match(names(ctrl),names(cont))
   if(any(is.na(user_ctrlI)))
@@ -35,7 +35,17 @@ function(reshOBJ,etastart=-0.1, ctrl=list())
   ## generate starting values
   startOBJ <- startV_nrmMG(reshOBJ=reshOBJ,etastart=etastart,Clist=cont$Clist)
   ##generate quadrature nodes and weights
-  quads <- quadIT(nodes=cont$nodes,absrange=cont$absrange,ngr=nlevels(reshOBJ$gr))
+  if(all(is.na(cont$quads)) | ( !all(is.na(cont$quads)) & !cont$nonpar) )
+  {
+    quads <- quadIT(nodes=cont$nodes,absrange=cont$absrange,ngr=nlevels(reshOBJ$gr))
+    wherefrom <- "automatically generated"
+    if(!all(is.na(cont$quads))){warning("supplied quads are ignored because 'nonpar=FALSE'.")}
+    
+  } else {
+    cquads(cont$quads) # check the quads
+    quads <- cont$quads
+    wherefrom <- "individual quads"
+  }
   
   
   OLD     <- 0
@@ -44,68 +54,20 @@ function(reshOBJ,etastart=-0.1, ctrl=list())
   NLev    <- nlevels(reshOBJ$gr)
   ESTlist <- list()
   mueERG  <- NA
+  value0 <- 10000
   
   
   ##################################
   ## EM Algorithm  #################
   ##################################
 
-  
-if(cont$dooptim)
-{
-
-  repeat
-  {
-    if(cont$verbose){cat("\r Estep:",ZAEHL,"\r")}
-    
-    #E ****
-    erg_estep <- Enrm(PARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,PREVinp=mueERG)
-    
-    #M ****
-    oerg <- optim(par=PARS,fn=ZFnrm,gr=de1nrm,riqv_quer=erg_estep$riqv_querG, startOBJ=startOBJ, reshOBJ=reshOBJ, quads=quads, control=list(fnscale=-1,maxit=50),method="BFGS",hessian=TRUE)
-    
-    if(NLev > 1)
-    {
-      # estimate mu and sigma
-      mueERG <- mueNRM(PARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,sigmaest=cont$sigmaest)
-      # new quads
-      quads <- quadIT(nodes=cont$nodes,absrange=cont$absrange,ngr=NLev,mu=mueERG$mean_est,sigma=mueERG$sig_est)
-    }
-    
-
-    
-    if(abs(OLD - abs(oerg$value)) <= cont$exac & ZAEHL > 10 | ZAEHL > cont$EMmax)
-    {
-      mueERG <- mueNRM(PARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,sigmaest=cont$sigmaest,endest=TRUE)
-      
-      ESTlist[[1]]   <- oerg$par
-      ESTlist[[2]]   <- erg_estep
-      ESTlist[[3]]   <- oerg
-      ESTlist[[4]]   <- ZAEHL
-      ESTlist[[5]]   <- mueERG
-      ESTlist[[6]]   <- quads
-      ESTlist[[7]]   <- startOBJ
-      ESTlist[[8]]   <- cont
-      
-      names(ESTlist) <- c("etapar","last_estep","last_mstep" ,"n_steps","erg_distr","QUAD","starting_values","ctrl")
-      break
-    }
-    
-    OLD <- abs(oerg$value)
-    PARS <- oerg$par
-    ZAEHL <- ZAEHL + 1
-  }  
-  
-} else 
-{
-  
   repeat
   {
     if(cont$verbose & (ZAEHL == 1 | NLev <= 1)){cat("\r Estep:",ZAEHL,"| Mstep:", ZAEHL -1,"\r")}
     
     # E - STEP
     erg_estep <-  Enrm(PARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,PREVinp=mueERG,nonpar=cont$nonpar)
-    
+        
     if(cont$nonpar) # nonpar estimation in any case (reference group is standardized 0,1)
     {
       quads <- quadIT(nodes=cont$nodes,absrange=cont$absrange,ngr=NLev, ergE=erg_estep)  
@@ -121,8 +83,8 @@ if(cont$dooptim)
     
     for(i in 1:cont$NRmax)
       {
-        fir1 <- de1nrm(mPARS,riqv_quer=erg_estep$riqv_querG,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
-        sec2 <- de2nrm(mPARS,riqv_quer=erg_estep$riqv_querG,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
+        fir1 <- de1nrm(mPARS,Estep=erg_estep,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
+        sec2 <- de2nrm(mPARS,Estep=erg_estep,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
         
         newP <- mPARS - as.vector(fir1 %*% solve(sec2))
         
@@ -136,20 +98,30 @@ if(cont$dooptim)
       }
 
 
+    
+    ###### LIKELIHOOD BERECHNEN #######################
+    value <- ZFnrm(mPARS,riqv_quer=erg_estep$riqv_querG,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
+    
           
     ###########################
     # FINISHED ? ##############
     ###########################
     
-        if(sum(abs(mPARS - PARS)) <= cont$exac & ZAEHL > 10 | ZAEHL >= cont$EMmax)
+        if(abs(value0-value) <= cont$exac & ZAEHL > 2 | ZAEHL >= cont$EMmax)
           {
-            if(cont$verbose){cat("\r Estep:",ZAEHL,"| Mstep:", ZAEHL," --> estimating EAP & co \r")}
+            if(cont$verbose){cat("\r Estep:",ZAEHL,"| Mstep:", ZAEHL," --> estimating EAP & co \r\n")}
             mueERG <- mueNRM(mPARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,sigmaest=cont$sigmaest,endest=TRUE)
             
-            ###### LIKELIHOOD BERECHNEN #######################
-            value <- ZFnrm(mPARS,riqv_quer=erg_estep$riqv_querG,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
-            ###################################################
+            attr(quads,"wherefrom") <- wherefrom
             
+            # convergence reached?
+            if(abs(value0-value) <= cont$exac)
+            {
+              conv <- "convergence reached" 
+            } else {
+              conv <- "EM iteration limit reached! Increase EMmax."   
+            }
+
             ESTlist[[1]]   <- mPARS
             ESTlist[[2]]   <- erg_estep
             ESTlist[[3]]   <- list(value=value, hessian=sec2)
@@ -174,18 +146,18 @@ if(cont$dooptim)
     }
     
 
-     #browser()
     PARS <- mPARS
     ZAEHL <- ZAEHL + 1
+    value0 <- value
   }  
   
 
-}
+
 
   ## Person Parameters
   
-  EAP_nrm <- PePNRM(quads=quads,mueERG=mueERG)
-  ESTlist$EAPs <- EAP_nrm
+  ##EAP_nrm <- PePNRM(quads=quads,mueERG=mueERG)
+  ESTlist$EAPs <- mueERG$thetas
   ## centering
   
   if(all(!is.na(startOBJ$setC)))
@@ -245,6 +217,11 @@ if(cont$dooptim)
   # adding category information
   # -----------------------------
   ESTlist$Catinf <- Infnrm(ESTlist)
+  
+  
+  cat(">>>>>>>",conv,"\n")
+  attr(call,"convergence") <- conv
+  
   
   ESTlist$call <- call
   

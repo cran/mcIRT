@@ -16,7 +16,7 @@ nelm <-
     ######### USER CONTROLS #################
     #########################################
     
-    cont <- list(nodes=14, absrange=5, sigmaest=FALSE, exac=0.00001, EMmax = 500, verbose=TRUE, NRmax=20, NRexac=0.01, dooptim=FALSE, centBETA=FALSE, centALPHA=FALSE,Clist=NA, nonpar=FALSE)
+    cont <- list(nodes=14, absrange=5, sigmaest=FALSE, exac=0.001, EMmax = 500, verbose=TRUE, NRmax=20, NRexac=0.01, centBETA=FALSE, centALPHA=FALSE,Clist=NA, nonpar=FALSE,quads=NA)
     
     user_ctrlI <- match(names(ctrl),names(cont))
     if(any(is.na(user_ctrlI)))
@@ -35,8 +35,17 @@ nelm <-
     ## generate starting values
     startOBJ <- startV_nlmMG(reshOBJ=reshOBJ,etastart=etastart,Clist=cont$Clist)
     ##generate quadrature nodes and weights
-    quads <- quadIT(nodes=cont$nodes,absrange=cont$absrange,ngr=nlevels(reshOBJ$gr))
-    
+    if(all(is.na(cont$quads)) | ( !all(is.na(cont$quads)) & !cont$nonpar) )
+    {
+      quads <- quadIT(nodes=cont$nodes,absrange=cont$absrange,ngr=nlevels(reshOBJ$gr))
+      wherefrom <- "automatically generated"
+      if(!all(is.na(cont$quads))){warning("supplied quads are ignored because 'nonpar=FALSE'.")}
+      
+    } else {
+      cquads(cont$quads) # check the quads
+      quads <- cont$quads
+      wherefrom <- "individual quads"
+    }
     
     OLD     <- 0
     ZAEHL   <- 1
@@ -44,61 +53,9 @@ nelm <-
     NLev    <- nlevels(reshOBJ$gr)
     ESTlist <- list()
     mueERG <- NA
+    value0 <- 10000
     
     
-    
-    
-    if(cont$dooptim)
-    {
-      
-      repeat
-      {
-        if(cont$verbose){cat("\r Estep:",ZAEHL,"| Mstep:", ZAEHL -1,"\r")}
-        
-        #E ****
-        erg_estep <- Enlm(PARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,PREVinp=mueERG)
-        
-        #M ****
-        oerg <- optim(par=PARS,fn=ZFnlm,gr=de1nlm,erg_estep=erg_estep, startOBJ=startOBJ, reshOBJ=reshOBJ, quads=quads, control=list(fnscale=-1,maxit=50),method="BFGS",hessian=TRUE)
-        
-        
-        if(NLev > 1)
-        {
-          # estimate mu and sigma
-
-          mueERG <- mueNLM(PARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,sigmaest=cont$sigmaest)
-          # new quads
-          quads <- quadIT(nodes=cont$nodes,absrange=cont$absrange,ngr=NLev,mu=mueERG$mean_est,sigma=mueERG$sig_est)
-        }
-        
-        if(abs(OLD - abs(oerg$value)) <= cont$exac & ZAEHL > 10 | ZAEHL > cont$EMmax)
-        {
-          mueERG <- mueNLM(PARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,sigmaest=cont$sigmaest,endest=TRUE)
-          
-          ESTlist[[1]]   <- oerg$par
-          ESTlist[[2]]   <- erg_estep
-          ESTlist[[3]]   <- oerg
-          ESTlist[[4]]   <- ZAEHL
-          ESTlist[[5]]   <- mueERG
-          ESTlist[[6]]   <- quads
-          ESTlist[[7]]   <- startOBJ
-          ESTlist[[8]]   <- cont
-          
-          names(ESTlist) <- c("etapar","last_estep","last_mstep" ,"n_steps","erg_distr","QUAD","starting_values","ctrl")
-          break
-        }
-        
-        OLD <- abs(oerg$value)
-        PARS <- oerg$par
-        ZAEHL <- ZAEHL + 1
-      }
-      
-      
-      
-      
-    } else {
-      
-      
       
       ## EM Algorithm
       repeat
@@ -121,8 +78,8 @@ nelm <-
         
         for(i in 1:cont$NRmax)
         {
-          fir1 <- de1nlm(mPARS,erg_estep=erg_estep$riq_querA,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
-          sec2 <- de2nlm(mPARS,riqv_quer=erg_estep$riq_querA,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
+          fir1 <- de1nlm(mPARS,erg_estep=erg_estep,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
+          sec2 <- de2nlm(mPARS,erg_estep=erg_estep,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
           
           newP <- mPARS - as.vector(fir1 %*% solve(sec2))
           
@@ -135,19 +92,26 @@ nelm <-
           }
         }
         
-        
+        ###### LIKELIHOOD ESTIMATION #######################
+        value <- ZFnlm(mPARS,erg_estep=erg_estep,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
 
         
-        if(sum(abs(mPARS - PARS)) <= cont$exac & ZAEHL > 10 | ZAEHL >= cont$EMmax)
+        #if(sum(abs(mPARS - PARS)) <= cont$exac & ZAEHL > 10 | ZAEHL >= cont$EMmax)
+        if(abs(value0-value) <= cont$exac & ZAEHL > 2 | ZAEHL >= cont$EMmax)
         {
-          if(cont$verbose){cat("\r Estep:",ZAEHL,"| Mstep:", ZAEHL," --> estimating EAP & co \r")}
+          if(cont$verbose){cat("\r Estep:",ZAEHL,"| Mstep:", ZAEHL," --> estimating EAP & co \r\n")}
          
-          mueERG <- mueNLM(PARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,sigmaest=cont$sigmaest,endest=TRUE)
-          #quads <- quadIT(nodes=cont$nodes,absrange=cont$absrange,ngr=NLev,mu=mueERG$mean_est,sigma=mueERG$sig_est)
+          mueERG <- mueNLM(mPARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,sigmaest=cont$sigmaest,endest=TRUE)
+
+          attr(quads,"wherefrom") <- wherefrom
           
-          ###### LIKELIHOOD BERECHNEN #######################
-          value <- ZFnlm(mPARS,erg_estep=erg_estep$riq_querA,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads)
-          ###################################################
+          # convergence reached?
+          if(abs(value0-value) <= cont$exac)
+          {
+            conv <- "convergence reached" 
+          } else {
+            conv <- "EM iteration limit reached! Increase EMmax."   
+          }
           
           ESTlist[[1]]   <- mPARS
           ESTlist[[2]]   <- erg_estep
@@ -167,24 +131,24 @@ nelm <-
         {
           if(cont$verbose & ZAEHL >= 1){cat("\r Estep:",ZAEHL+1,"| Mstep:", ZAEHL,"\r")}  
           # estimate mu and sigma
-          mueERG <- mueNLM(PARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,sigmaest=cont$sigmaest)
+          mueERG <- mueNLM(mPARS,reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,sigmaest=cont$sigmaest)
           # new quads
           quads <- quadIT(nodes=cont$nodes,absrange=cont$absrange,ngr=NLev,mu=mueERG$mean_est,sigma=mueERG$sig_est)
         }
         
-        
 
+        
         PARS <- mPARS
         ZAEHL <- ZAEHL + 1
+        value0 <- value
         
         
       }
       
-    }
+
 
     ## Person Parameters
-    EAP_nlm <- PePNLM(ESTlist[[1]],reshOBJ=reshOBJ,startOBJ=startOBJ,quads=quads,mueERG=mueERG)
-    ESTlist$EAPs <- EAP_nlm
+    ESTlist$EAPs <- mueERG$thetas
     # center the parameters
     parcent <- Cnlm(reshOBJ=reshOBJ,ESTlist=ESTlist, centBETA=cont$centBETA, centALPHA=cont$centALPHA, startOBJ = startOBJ)
     
@@ -212,8 +176,6 @@ nelm <-
     }
     
     
-    #comphess <- diag(reshOBJ$Qmat %*% solve(ESTlist$last_mstep$hessian) %*% t(reshOBJ$Qmat))
-    #comphesq <- sqrt(comphess*(-1))
     #
     notest <- which(rowSums(reshOBJ$Qmat) == 0)
     comphesq[notest] <- NA
@@ -228,6 +190,11 @@ nelm <-
     # -----------------------------
     ESTlist$Catinf <- Infnelm(ESTlist)
     
+
+    cat(">>>>>>>",conv,"\n")
+    attr(call,"convergence") <- conv
+    
+  
     ESTlist$call <- call
     
     class(ESTlist) <- "nelm"

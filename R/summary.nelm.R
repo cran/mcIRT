@@ -1,7 +1,7 @@
 summary.nelm <-
-function(object, ...)
+function(object, RETURN=FALSE, ...)
 {
-
+#browser()
   RESnlm <- object
   # 2 not (-2) because it is fnscale=-1 in optim  
   min2logL <- 2*RESnlm$last_mstep$value 
@@ -39,19 +39,22 @@ function(object, ...)
   
   
   
-  catnrgroup <- lapply(RESnlm$reshOBJ$recm, function(grou)
-      {
-        
-      catnr <- mapply(function(x,numbers) 
-                    {
-                    cn <- colnames(x)[-1]
-                    cnn <- gsub(".*_(\\d+)","\\1",cn, perl=TRUE)
-                    paste("Item",numbers, "|categ",cnn,sep="") 
-                    
-                    },x=grou, numbers=1:length(RESnlm$reshOBJ$aDD),SIMPLIFY=FALSE)
-      catnr  
-      })
-      
+
+
+catnrgroup <- lapply(levels(RESnlm$reshOBJ$gr),function(nixi)
+{
+  
+  catallIT <- as.vector(mapply(function(x,y)
+  {
+    #paste0("Item",y, "|categ",1: (x$anz_cat-1))
+    paste0("Item",y, "|categ",gsub(".*(\\d{1,}).*","\\1",x$categ[-1]))
+  },x=RESnlm$reshOBJ$aDD,y=1:length(RESnlm$reshOBJ$aDD)))
+  
+  catallIT 
+  
+})
+
+
 
   
   form1a <- mapply(function(eachG,eachSE,cnrg)
@@ -107,7 +110,7 @@ function(object, ...)
     
   } else 
   {
-    pardist <- length(RESnlm$QUAD$A$nodes)*length(RESnlm$QUAD) - 3 - (length(RESnlm$QUAD) - 1)  
+    pardist <- length(RESnlm$QUAD[[1]]$nodes)*length(RESnlm$QUAD) - 3 - (length(RESnlm$QUAD) - 1)  
     # anzahl der bins - 3 für die erste gruppe und anzahl - 1 für die restlichen gruppen + itpar - constants
     npar <- ncol(RESnlm$reshOBJ$Qmat) + pardist - length(RESnlm$ctrl$Clist)
   }
@@ -134,6 +137,7 @@ function(object, ...)
   
   print(firstpart)
   
+  cat(">>",attr(RESnlm$call,"convergence"),"<<")
   
   cat("\n\n Parameter estimates for latent distributions")
   cat("\n -------------------------------------------------------------------- \n")
@@ -142,7 +146,7 @@ function(object, ...)
   cat("\n Standard Errors:\n")
   print(SEmat)
   
-  cat("\nPrior:", nonparametric)
+  cat("\nPrior:", nonparametric , "&", attr(RESnlm$QUAD,"wherefrom"))  
   
   cat("\n\n Parameter estimates for the 2-PL part")
   cat("\n -------------------------------------------------------------------- \n")
@@ -154,6 +158,11 @@ function(object, ...)
   cat("\n -------------------------------------------------------------------- \n")
   print(form1a)
   
+if(RETURN)  
+{
+return(list(firstpart=firstpart,meansig=meansig,SEmat=SEmat,albePm=albePm,form1a=form1a))
   
   
+}
+
 }
